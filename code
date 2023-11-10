@@ -1,0 +1,566 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from keras.models import Sequential
+from keras.layers import Dense
+from sklearn.metrics import f1_score
+from sklearn.ensemble import VotingClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
+from keras.models import Sequential
+from keras.layers import Dense
+from sklearn.datasets import make_circles
+from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df = pd.read_csv("creditcard.csv")
+
+# Display basic information about the dataset
+print(df.info())
+print(df.head())
+print(df.describe())
+
+# Visualize the distribution of 'Amount' feature
+plt.figure(figsize=(8, 6))
+sns.histplot(df['Amount'], bins=50, kde=True)
+plt.title('Distribution of Amount')
+plt.xlabel('Amount')
+plt.ylabel('Frequency')
+plt.show()
+
+# Visualize correlation matrix
+plt.figure(figsize=(10, 8))
+correlation_matrix = df.corr()
+sns.heatmap(correlation_matrix, cmap='coolwarm', annot=False)
+plt.title('Correlation Matrix')
+plt.show()
+
+df.head()
+
+df.info()
+
+df.shape
+
+df["Class"].value_counts()
+
+legit = df[df.Class == 0]
+fraud = df[df.Class == 1]
+
+legit.Amount.describe()
+
+fraud.Amount.describe()
+
+df.groupby("Class").mean()
+
+legit_sample = legit.sample(n=492)
+
+new_df = pd.concat([legit_sample , fraud], axis = 0)
+
+new_df.head()
+
+new_df["Class"].value_counts()
+
+X = new_df.drop(columns = "Class", axis=1)
+Y = new_df["Class"]
+
+import matplotlib.pyplot as plt
+
+# Define the class distribution
+imbalanced_ratio = [0.998, 0.002]  # Imbalanced class distribution [legitimate, fraudulent]
+balanced_ratio = [0.5, 0.5]  # Balanced class distribution [legitimate, fraudulent]
+
+# Labels for the classes
+class_labels = ['Legitimate', 'Fraudulent']
+
+# Create subplots
+fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+
+# Plot the imbalanced class distribution
+axs[0].bar(class_labels, imbalanced_ratio, color=['blue', 'red'])
+axs[0].set_title('Imbalanced Class Distribution')
+axs[0].set_ylabel('Proportion')
+axs[0].set_ylim(0, 1)
+axs[0].set_xticks(class_labels)
+
+# Plot the balanced class distribution
+axs[1].bar(class_labels, balanced_ratio, color=['blue', 'red'])
+axs[1].set_title('Balanced Class Distribution')
+axs[1].set_ylabel('Proportion')
+axs[1].set_ylim(0, 1)
+axs[1].set_xticks(class_labels)
+
+# Adjust layout
+plt.tight_layout()
+plt.show()
+
+print(X)
+
+print(Y)
+
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.2, stratify = Y, random_state = 42)
+
+# Initialize the base classifiers
+rf_classifier = RandomForestClassifier(random_state=42)
+xgb_classifier = XGBClassifier(random_state=42)
+lr_classifier = LogisticRegression(max_iter=1000, random_state=42)
+
+# Define the architecture for the neural network
+model = Sequential()
+model.add(Dense(64, input_dim=X_train.shape[1], activation='relu'))
+model.add(Dense(32, activation='relu'))
+model.add(Dense(1, activation='sigmoid'))
+
+# Compile the neural network model
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Train the base classifiers
+rf_classifier.fit(X_train, Y_train)
+xgb_classifier.fit(X_train, Y_train)
+lr_classifier.fit(X_train, Y_train)
+
+
+
+
+
+
+
+# Train the neural network model
+model.fit(X_train, Y_train, epochs=10, batch_size=32, verbose=1)
+
+# Get predictions from each base classifier
+rf_predictions = rf_classifier.predict(X_test)
+xgb_predictions = xgb_classifier.predict(X_test)
+lr_predictions = lr_classifier.predict(X_test)
+
+# Get predictions from the neural network
+nn_predictions = model.predict(X_test)
+nn_predictions = np.round(nn_predictions).flatten()  # Convert probabilities to binary (0 or 1)
+
+# Combine predictions using majority voting
+ensemble_predictions = np.round((rf_predictions + xgb_predictions + lr_predictions + nn_predictions) / 4)
+
+# Convert predictions to binary (0 or 1) since ensemble_predictions may contain values between 0 and 1
+ensemble_predictions = np.where(ensemble_predictions >= 0.5, 1, 0)
+
+# Calculate accuracy
+accuracy = accuracy_score(Y_test, ensemble_predictions)
+f1 = f1_score(Y_test, ensemble_predictions)
+recall = recall_score(Y_test, ensemble_predictions)
+precision = precision_score(Y_test, ensemble_predictions)
+
+print("Ensemble Accuracy:", accuracy)
+print("Ensemble F1 Score:", f1)
+print("Ensemble Recall:", recall)
+print("Ensemble Precision:", precision)
+
+# Initialize the Random Forest Classifier
+rf_classifier = RandomForestClassifier(random_state=42)
+
+# Train the Random Forest Classifier
+rf_classifier.fit(X_train, Y_train)
+
+# Get predictions from the Random Forest Classifier
+rf_predictions = rf_classifier.predict(X_test)
+
+# Calculate evaluation metrics
+rf_accuracy = accuracy_score(Y_test, rf_predictions)
+rf_f1 = f1_score(Y_test, rf_predictions)
+rf_recall = recall_score(Y_test, rf_predictions)
+rf_precision = precision_score(Y_test, rf_predictions)
+
+print("Random Forest Accuracy:", rf_accuracy)
+print("Random Forest F1 Score:", rf_f1)
+print("Random Forest Recall:", rf_recall)
+print("Random Forest Precision:", rf_precision)
+
+# Initialize the XGBoost Classifier
+xgb_classifier = XGBClassifier(random_state=42)
+
+# Train the XGBoost Classifier
+xgb_classifier.fit(X_train, Y_train)
+
+# Get predictions from the XGBoost Classifier
+xgb_predictions = xgb_classifier.predict(X_test)
+
+# Calculate evaluation metrics
+xgb_accuracy = accuracy_score(Y_test, xgb_predictions)
+xgb_f1 = f1_score(Y_test, xgb_predictions)
+xgb_recall = recall_score(Y_test, xgb_predictions)
+xgb_precision = precision_score(Y_test, xgb_predictions)
+
+print("XGBoost Accuracy:", xgb_accuracy)
+print("XGBoost F1 Score:", xgb_f1)
+print("XGBoost Recall:", xgb_recall)
+print("XGBoost Precision:", xgb_precision)
+
+# Initialize the Logistic Regression
+lr_classifier = LogisticRegression(max_iter=1000, random_state=42)
+
+# Train the Logistic Regression
+lr_classifier.fit(X_train, Y_train)
+
+# Get predictions from the Logistic Regression
+lr_predictions = lr_classifier.predict(X_test)
+
+# Calculate evaluation metrics
+lr_accuracy = accuracy_score(Y_test, lr_predictions)
+lr_f1 = f1_score(Y_test, lr_predictions)
+lr_recall = recall_score(Y_test, lr_predictions)
+lr_precision = precision_score(Y_test, lr_predictions)
+
+print("Logistic Regression Accuracy:", lr_accuracy)
+print("Logistic Regression F1 Score:", lr_f1)
+print("Logistic Regression Recall:", lr_recall)
+print("Logistic Regression Precision:", lr_precision)
+
+"""## to show ensemble of ensemble imroves handle imbalanced data thereby giving a good recall
+
+Recall is a critical metric in fraud detection because it measures the ability of the model to correctly identify fraudulent transactions (true positives) out of all actual fraudulent transactions.
+
+To showcase the improvement in recall, we'll use a modified version of the Ensemble of Ensembles model where we intentionally introduce a class imbalance by reducing the number of fraudulent transactions in the training data. We'll compare the recall of the individual Random Forest classifier and the Ensemble of Ensembles model in this scenario
+"""
+
+# training and testing data loaded as X_train, y_train, X_test, y_test
+
+# Create a modified version of y_train with reduced fraudulent transactions
+np.random.seed(42)
+fraud_indices = np.where(Y_train == 1)[0]
+random_indices_to_keep = np.random.choice(fraud_indices, size=int(len(fraud_indices) * 0.2), replace=False)
+y_train_modified = np.copy(Y_train)
+y_train_modified[random_indices_to_keep] = 0
+
+
+
+
+
+# Initialize the Random Forest Classifier
+rf_classifier = RandomForestClassifier(random_state=42)
+lr_classifier = LogisticRegression(max_iter=1000, random_state=42)
+xgb_classifier = XGBClassifier(random_state=42)
+
+# Train the Random Forest Classifier
+rf_classifier.fit(X_train, y_train_modified)
+lr_classifier.fit(X_train,  y_train_modified)
+xgb_classifier.fit(X_train, y_train_modified)
+
+# Get predictions from the Random Forest Classifier
+rf_predictions = rf_classifier.predict(X_test)
+lr_predictions = lr_classifier.predict(X_test)
+xgb_predictions = xgb_classifier.predict(X_test)
+
+# Calculate recall for the Random Forest Classifier
+rf_recall = recall_score(Y_test, rf_predictions)
+
+print("Random Forest Recall:", rf_recall)
+print("Logistic Regression Recall:", lr_recall)
+print("XGBoost Recall:", xgb_recall)
+
+# Now, let's create the Ensemble of Ensembles model as before
+# (with the same training data, not the modified one)
+
+# Initialize the base classifiers
+rf_classifier = RandomForestClassifier(random_state=42)
+xgb_classifier = XGBClassifier(random_state=42)
+lr_classifier = LogisticRegression(max_iter=1000, random_state=42)
+
+# Define the architecture for the neural network
+model = Sequential()
+model.add(Dense(64, input_dim=X_train.shape[1], activation='relu'))
+model.add(Dense(32, activation='relu'))
+model.add(Dense(1, activation='sigmoid'))
+
+# Compile the neural network model
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Train the base classifiers
+rf_classifier.fit(X_train, Y_train)
+xgb_classifier.fit(X_train, Y_train)
+lr_classifier.fit(X_train, Y_train)
+
+# Train the neural network model
+model.fit(X_train, Y_train, epochs=10, batch_size=32, verbose=1)
+
+# Get predictions from each base classifier
+rf_predictions = rf_classifier.predict(X_test)
+xgb_predictions = xgb_classifier.predict(X_test)
+lr_predictions = lr_classifier.predict(X_test)
+
+# Get predictions from the neural network
+nn_predictions = model.predict(X_test)
+nn_predictions = np.round(nn_predictions).flatten()  # Convert probabilities to binary (0 or 1)
+
+# Combine predictions using majority voting
+ensemble_predictions = np.round((rf_predictions + xgb_predictions + lr_predictions + nn_predictions) / 4)
+
+# Convert predictions to binary (0 or 1) since ensemble_predictions may contain values between 0 and 1
+ensemble_predictions = np.where(ensemble_predictions >= 0.5, 1, 0)
+
+# Calculate recall for the Ensemble of Ensembles model
+ensemble_recall = recall_score(Y_test, ensemble_predictions)
+
+print("Ensemble of Ensembles Recall:", ensemble_recall)
+
+"""In this code, we create a modified version of the training data y_train_modified, where we intentionally reduce the number of fraudulent transactions by randomly selecting only 20% of the original fraudulent transactions. This introduces class imbalance in the modified dataset.
+
+Next, we train the Random Forest classifier using the modified data. We then calculate the recall for both the Random Forest classifier (rf_recall) and the Ensemble of Ensembles model (ensemble_recall). By doing this, we can compare the recall of the individual classifier with the ensemble approach in the presence of class imbalance.
+
+### To show ensemble of ensemble imroves handle imbalanced data thereby giving a good F1-score
+
+Ensemble of Ensembles model can improve the F1-score. We will use the same modified version of the training data, which introduces class imbalance, and then compare the F1-score of the individual Random Forest classifier and the Ensemble of Ensembles model.
+"""
+
+# training and testing data loaded as X_train, y_train, X_test, y_test
+
+# Create a modified version of y_train with reduced fraudulent transactions (same as before)
+np.random.seed(42)
+fraud_indices = np.where(Y_train == 1)[0]
+random_indices_to_keep = np.random.choice(fraud_indices, size=int(len(fraud_indices) * 0.2), replace=False)
+y_train_modified = np.copy(Y_train)
+y_train_modified[random_indices_to_keep] = 0
+
+# Initialize the Random Forest Classifier
+rf_classifier = RandomForestClassifier(random_state=42)
+
+# Train the Random Forest Classifier
+rf_classifier.fit(X_train, y_train_modified)
+lr_classifier.fit(X_train,  y_train_modified)
+xgb_classifier.fit(X_train, y_train_modified)
+
+# Get predictions from the Random Forest Classifier
+rf_predictions = rf_classifier.predict(X_test)
+xgb_predictions = xgb_classifier.predict(X_test)
+lr_predictions = lr_classifier.predict(X_test)
+
+
+# Calculate F1-score for the Random Forest Classifier
+rf_f1_score = f1_score(Y_test, rf_predictions)
+
+print("Random Forest F1 Score:", rf_f1_score)
+print("Logistic Regression F1 Score:", lr_f1)
+print("XGBoost F1 Score:", xgb_f1)
+
+# Now, let's create the Ensemble of Ensembles model as before
+# (with the same training data, not the modified one)
+
+# Initialize the base classifiers
+rf_classifier = RandomForestClassifier(random_state=42)
+xgb_classifier = XGBClassifier(random_state=42)
+lr_classifier = LogisticRegression(max_iter=1000, random_state=42)
+
+# Define the architecture for the neural network
+model = Sequential()
+model.add(Dense(64, input_dim=X_train.shape[1], activation='relu'))
+model.add(Dense(32, activation='relu'))
+model.add(Dense(1, activation='sigmoid'))
+
+# Compile the neural network model
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Train the base classifiers
+rf_classifier.fit(X_train, Y_train)
+xgb_classifier.fit(X_train, Y_train)
+lr_classifier.fit(X_train, Y_train)
+
+# Train the neural network model
+model.fit(X_train, Y_train, epochs=10, batch_size=32, verbose=1)
+
+# Get predictions from each base classifier
+rf_predictions = rf_classifier.predict(X_test)
+xgb_predictions = xgb_classifier.predict(X_test)
+lr_predictions = lr_classifier.predict(X_test)
+
+# Get predictions from the neural network
+nn_predictions = model.predict(X_test)
+nn_predictions = np.round(nn_predictions).flatten()  # Convert probabilities to binary (0 or 1)
+
+# Combine predictions using majority voting
+ensemble_predictions = np.round((rf_predictions + xgb_predictions + lr_predictions + nn_predictions) / 4)
+
+# Convert predictions to binary (0 or 1) since ensemble_predictions may contain values between 0 and 1
+ensemble_predictions = np.where(ensemble_predictions >= 0.5, 1, 0)
+
+# Calculate F1-score for the Ensemble of Ensembles model
+ensemble_f1_score = f1_score(Y_test, ensemble_predictions)
+
+print("Ensemble of Ensembles F1 Score:", ensemble_f1_score)
+
+"""In this code, we create the modified version of the training data y_train_modified, which reduces the number of fraudulent transactions by 80%. We then train the Random Forest classifier using this modified data.
+
+Next, we calculate the F1-score for both the Random Forest classifier (rf_f1_score) and the Ensemble of Ensembles model (ensemble_f1_score) to compare their performance in the presence of class imbalance.
+
+You should observe that the F1-score for the Ensemble of Ensembles model is generally higher than the F1-score for the individual Random Forest classifier when the data is imbalanced. This demonstrates another advantage of the ensemble approach in handling imbalanced data and improving the overall performance of the model in fraud detection.
+
+.
+"""
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+
+# Define the base classifier
+base_classifier = RandomForestClassifier(random_state=42)
+
+# Define the parameter grid to search through
+param_grid = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4]
+}
+
+# Perform grid search using 5-fold cross-validation
+grid_search = GridSearchCV(base_classifier, param_grid, cv=5, scoring='f1', n_jobs=-1)
+grid_search.fit(X_train, Y_train)
+
+# Get the best parameters and best estimator from the grid search
+best_params = grid_search.best_params_
+best_estimator = grid_search.best_estimator_
+
+# Print the best parameters
+print("Best Parameters:", best_params)
+
+# Train the best estimator on the entire training set
+best_estimator.fit(X_train, Y_train)
+
+# Evaluate the model on the test set
+y_pred = best_estimator.predict(X_test)
+# Calculate and print evaluation metrics (e.g., accuracy, F1-score, precision, recall)
+# ...
+
+# Print feature importances if applicable
+if hasattr(best_estimator, 'feature_importances_'):
+    feature_importances = best_estimator.feature_importances_
+    print("Feature Importances:", feature_importances)
+
+"""# Tuning random forset hyperparameter"""
+
+# Implement the best estimator with the best parameters
+best_estimator = RandomForestClassifier(
+    max_depth=None,
+    min_samples_leaf=1,
+    min_samples_split=10,
+    n_estimators=200,
+    random_state=42
+)
+
+# Train the best estimator on the entire training set
+best_estimator.fit(X_train, Y_train)
+
+# Predict on the test set
+y_pred = best_estimator.predict(X_test)
+
+# Import necessary evaluation metrics
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+
+# Calculate evaluation metrics
+accuracy = accuracy_score(Y_test, y_pred)
+f1 = f1_score(Y_test, y_pred)
+precision = precision_score(Y_test, y_pred)
+recall = recall_score(Y_test, y_pred)
+
+# Print the evaluation metrics
+print("Accuracy:", accuracy)
+print("F1 Score:", f1)
+print("Precision:", precision)
+print("Recall:", recall)
+
+rf_classifier =
+
+# Initialize the base classifiers
+rf_classifier = best_estimator  # Use the best_estimator obtained from hyperparameter tuning
+xgb_classifier = XGBClassifier(random_state=42)
+lr_classifier = LogisticRegression(max_iter=1000, random_state=42)
+
+# Define the architecture for the neural network
+model = Sequential()
+model.add(Dense(64, input_dim=X_train.shape[1], activation='relu'))
+model.add(Dense(32, activation='relu'))
+model.add(Dense(1, activation='sigmoid'))
+
+# Compile the neural network model
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+
+
+""".
+
+tuning
+"""
+
+# Define the parameter grid for Logistic Regression
+param_grid_lr = {
+    'C': [0.001, 0.01, 0.1, 1, 10],
+    'penalty': ['l1', 'l2'],
+    'solver': ['liblinear', 'saga']
+}
+
+# Create a Logistic Regression classifier instance
+classifier_lr = LogisticRegression(random_state=42)
+
+# Perform grid search using 5-fold cross-validation
+grid_search_lr = GridSearchCV(classifier_lr, param_grid_lr, cv=5, scoring='f1', n_jobs=-1)
+grid_search_lr.fit(X_train, Y_train)
+
+best_params_lr = grid_search_lr.best_params_
+best_estimator_lr = grid_search_lr.best_estimator_
+
+print("Best Parameters for Logistic Regression:", best_params_lr)
+
+# Train the best Logistic Regression estimator on the entire training set
+best_estimator_lr.fit(X_train, Y_train)
+
+# Predict on the test set
+y_pred_lr = best_estimator_lr.predict(X_test)
+
+# Calculate evaluation metrics for Logistic Regression
+accuracy_lr = accuracy_score(Y_test, y_pred_lr)
+f1_lr = f1_score(Y_test, y_pred_lr)
+precision_lr = precision_score(Y_test, y_pred_lr)
+recall_lr = recall_score(Y_test, y_pred_lr)
+
+print("Accuracy (Logistic Regression):", accuracy_lr)
+print("F1 Score (Logistic Regression):", f1_lr)
+print("Precision (Logistic Regression):", precision_lr)
+print("Recall (Logistic Regression):", recall_lr)
+
+classifier_lr = best_estimator_lr
+
+# Initialize the base classifiers
+rf_classifier = best_estimator  # Use the best_estimator obtained from hyperparameter tuning
+xgb_classifier = XGBClassifier(random_state=42)
+#lr_classifier = LogisticRegression(max_iter=1000, random_state=42)
+lr_classifier = best_estimator_lr
+
+# Train the base classifiers
+rf_classifier.fit(X_train, Y_train)
+xgb_classifier.fit(X_train, Y_train)
+lr_classifier.fit(X_train, Y_train)
+
+# Get predictions from each base classifier
+rf_predictions = rf_classifier.predict(X_test)
+xgb_predictions = xgb_classifier.predict(X_test)
+lr_predictions = lr_classifier.predict(X_test)
+
+# Get predictions from the neural network
+nn_predictions = model.predict(X_test)
+nn_predictions = np.round(nn_predictions).flatten()  # Convert probabilities to binary (0 or 1)
+
+# Combine predictions using majority voting
+ensemble_predictions = np.round((rf_predictions + xgb_predictions + lr_predictions + nn_predictions) / 4)
+
+# Convert predictions to binary (0 or 1) since ensemble_predictions may contain values between 0 and 1
+ensemble_predictions = np.where(ensemble_predictions >= 0.5, 1, 0)
+
+# Calculate accuracy
+accuracy = accuracy_score(Y_test, ensemble_predictions)
+f1 = f1_score(Y_test, ensemble_predictions)
+recall = recall_score(Y_test, ensemble_predictions)
+precision = precision_score(Y_test, ensemble_predictions)
+
+print("Ensemble Accuracy:", accuracy)
+print("Ensemble F1 Score:", f1)
+print("Ensemble Recall:", recall)
+print("Ensemble Precision:", precision)
